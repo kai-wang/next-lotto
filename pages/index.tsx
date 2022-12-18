@@ -13,13 +13,14 @@ import {
 } from "@thirdweb-dev/react";
 import { ethers } from "ethers";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { currency } from "../constants";
 import CountdownTimer from "../components/CountdownTimer";
 import toast from "react-hot-toast";
 
 const Home: NextPage = () => {
   const address = useAddress();
+  const [userTickets, setUserTickets] = useState(0);
   const [quantity, setQuantity] = useState<number>(1);
 
   const { contract, isLoading } = useContract(
@@ -44,6 +45,8 @@ const Home: NextPage = () => {
   const { data: expiration } = useContractRead(contract, "expiration");
   const { mutateAsync: BuyTickets } = useContractWrite(contract, "BuyTickets");
 
+  const { data: tickets } = useContractRead(contract, "getTickets");
+
   const handleClick = async () => {
     if (!ticketPrice) return;
     const notification = toast.loading("Buying your tickets...");
@@ -51,12 +54,14 @@ const Home: NextPage = () => {
       let v = ethers.utils.parseEther(
         (Number(ethers.utils.formatEther(ticketPrice)) * quantity).toString()
       );
-      console.log((Number(ethers.utils.formatEther(ticketPrice)) * quantity).toString());
+      console.log(
+        (Number(ethers.utils.formatEther(ticketPrice)) * quantity).toString()
+      );
 
       const data = await BuyTickets([
         {
-          value: v
-        }
+          value: v,
+        },
       ]);
 
       toast.success("Tickets purchased successfully!", {
@@ -69,6 +74,18 @@ const Home: NextPage = () => {
         };
     }
   };
+
+  useEffect(() => {
+    if(!tickets) return;
+
+    const totalTickets: string[] = tickets;
+
+    const noOfUserTickets = totalTickets.reduce(
+      (total, ticketAddress) => (ticketAddress === address ? total + 1 : total), 0
+    );
+
+    setUserTickets(noOfUserTickets);
+  }, [tickets, address]);
 
   if (!address) return <Login />;
 
@@ -164,11 +181,31 @@ const Home: NextPage = () => {
                 remainingTickets?.toNumber() === 0
               }
               onClick={handleClick}
-              className="mt-5 w-full bg-gradient-to-br from-orange-500 to-emerald-600 px-10 py-5 rounded-md text-white shadow-xl disabled:from-gray-600 disabled:text-gray-100 disabled:to-gray-600 disabled:cursor-not-allowed"
+              className="mt-5 w-full bg-gradient-to-br from-orange-500 to-emerald-600 px-10 py-5 rounded-md text-white shadow-xl font-semibold disabled:from-gray-600 disabled:text-gray-100 disabled:to-gray-600 disabled:cursor-not-allowed"
             >
-              Buy Tickets
+              Buy {quantity} Tickets
             </button>
           </div>
+
+          {userTickets > 0 && (
+            <div className="stats">
+              <p className="text-lg mb-2">
+                You have {userTickets} Tickets in this draw
+              </p>
+              <div className="flex max-w-sm flex-wrap gap-x-2 gap-y-2">
+                {Array(userTickets)
+                  .fill("")
+                  .map((_, index) => (
+                    <p
+                      key={index}
+                      className="text-emerald-300 h-20 w-12 bg-emerald-500/30 rounded-lg flex flex-shrink-0 items-center justify-center text-xs italic"
+                    >
+                      {index + 1}
+                    </p>
+                  ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
